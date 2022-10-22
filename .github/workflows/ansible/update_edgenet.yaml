@@ -1,0 +1,68 @@
+---
+-
+  name: Update Alvey Coin binary
+  hosts:
+    - all
+  become: yes
+  tasks:
+    ## update & upgrade system
+    - name: Update & upgrade system
+      apt:
+        upgrade: yes
+        update_cache: yes
+
+    ## stop alveychain service
+    - name: Stop Alvey Coin service
+      systemd:
+        state: stopped
+        name: alveychain
+
+    ## get the latest release
+    - name: Get latest release link
+      uri:
+        url: https://api.github.com/repos/AlveyCoin/alveychain/releases/latest
+        return_content: true
+      register: edge_release
+
+    ## download the latest release
+    - name: Download latest Alvey Coin release
+      get_url:
+        url: "{{ edge_release.json.assets[3].browser_download_url }}"
+        dest: /tmp/alveychain.tar.gz
+        force: yes
+
+    ## create temp dir for release
+    - name: Create temp dir for Alvey Coin release
+      file:
+        path: /tmp/alveychain
+        state: directory
+
+    ## unpack release tar
+    - name: Unpack Alvey Coin release
+      unarchive:
+        remote_src: yes
+        src: /tmp/alveychain.tar.gz
+        dest: /tmp/alveychain
+
+    ## set alveychain to PATH
+    - name: Place Alvey Coin binary to PATH
+      copy:
+        remote_src: yes
+        src: /tmp/alveychain/alveychain
+        dest: /usr/local/bin/
+        mode: a+x
+        force: yes
+
+    ## remove release temp dir
+    - name: Remove temp Alvey Coin release dir
+      file:
+        state: absent
+        path: /tmp/alveychain
+
+    ## start Alvey Coin service
+    - name: Start alveychain service
+      systemd:
+        state: restarted
+        name: alveychain
+        daemon_reload: yes
+        enabled: yes
